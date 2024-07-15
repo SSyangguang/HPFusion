@@ -31,13 +31,14 @@ class FusionLoss(nn.Module):
         self.ssim_loss = SSIMLoss(window_size=11).cuda()
 
     def forward(self, image, probs):
+        diagonal_matrix = torch.eye(self.opt.batch_size).cuda()
 
         # loss for clip similarity
-        loss_clip_it_fimg = probs['irtext_fusimg']
-        loss_clip_vt_fimg = probs['vistext_fusimg']
+        loss_clip_it_fimg = self.l1_loss(probs['irtext_fusimg'], diagonal_matrix)
+        loss_clip_vt_fimg = self.l1_loss(probs['vistext_fusimg'], diagonal_matrix)
 
-        loss_clip_ft_iimg = probs['fustext_irimg']
-        loss_clip_ft_vimg = probs['fustext_visimg']
+        loss_clip_ft_iimg = self.l1_loss(probs['fustext_irimg'], diagonal_matrix)
+        loss_clip_ft_vimg = self.l1_loss(probs['fustext_visimg'], diagonal_matrix)
         loss_clip = loss_clip_it_fimg + loss_clip_vt_fimg + loss_clip_ft_iimg + loss_clip_ft_vimg
         loss_clip = torch.mean(loss_clip)
 

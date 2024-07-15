@@ -2,14 +2,21 @@ import torch
 import os
 import json
 from tqdm import tqdm
+import numpy as np
 
 from llava.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 from llava.conversation import conv_templates, SeparatorStyle
 from llava.model.builder import load_pretrained_model
 from llava.utils import disable_torch_init
 from llava.mm_utils import tokenizer_image_token, get_model_name_from_path, KeywordsStoppingCriteria
+from llava.mm_utils import (
+    process_images,
+    tokenizer_image_token,
+    get_model_name_from_path,
+)
 
 from PIL import Image
+import torchvision.transforms as transforms
 import math
 import time
 import glob as gb
@@ -32,7 +39,7 @@ class LLavaDescription:
         self.image_processor = image_processor
         self.tokenizer = tokenizer
         self.context_len = context_len
-        self.qs = 'Describe this infrared image.'
+        self.qs = 'Describe the target in this infrared image.'
         self.conv_mode = conv_mode
 
         if self.model.config.mm_use_im_start_end:
@@ -72,9 +79,16 @@ class LLavaDescription:
         bs = len(imgs)
         input_ids = self.input_ids.repeat(bs, 1)
         img_tensor_list = []
+        # if imgs is a tensor, we can skip the image_processor.preprocess and directly input imgs
+        # but the tensor should be resized to 336 * 336 for clip encoder
+        # resize the tensor to 336*336
+        resize = transforms.Resize([336, 336])
         for image in imgs:
-            _image_tensor = self.image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
-            img_tensor_list.append(_image_tensor)
+            # if imgs are tensor, we can skip image_processor.preprocess
+            # image = Image.fromarray((image * 255).cpu().detach().permute(1, 2, 0).numpy().astype(np.uint8))
+            # _image_tensor = self.image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+            # img_tensor_list.append(_image_tensor)
+            img_tensor_list.append(resize(image))
         image_tensor = torch.stack(img_tensor_list, dim=0).half().to(self.device)
         stop_str = self.conv.sep if self.conv.sep_style != SeparatorStyle.TWO else self.conv.sep2
 
@@ -87,11 +101,15 @@ class LLavaDescription:
                 top_p=top_p,
                 num_beams=num_beams,
                 # no_repeat_ngram_size=3,
-                max_new_tokens=512,
+                # max_new_tokens determines how many tokens it generates.
+                # The model will stop either it has generated an "End-of-Sequence" token or reaches that length.
+                max_new_tokens=60,
+                pad_token_id=self.tokenizer.eos_token_id,
                 use_cache=True)
 
-        input_token_len = input_ids.shape[1]
-        outputs = self.tokenizer.batch_decode(output_ids[:, input_token_len:], skip_special_tokens=True)
+        # input_token_len = input_ids.shape[1]
+        # outputs = self.tokenizer.batch_decode(output_ids[:, input_token_len:], skip_special_tokens=True)
+        outputs = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
 
         img_captions = []
         for output in outputs:

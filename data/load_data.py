@@ -8,7 +8,8 @@ import numpy as np
 import torch.utils.data
 import torchvision.transforms as transforms
 
-from options.train_options import args
+from options.train_options import args as train_args
+from options.test_options import args as test_args
 
 
 IMG_EXTENSIONS = [
@@ -25,7 +26,7 @@ class TrainData(torch.utils.data.Dataset):
 
     def __init__(self, color=True):
         super(TrainData, self).__init__()
-        self.opt = args
+        self.opt = train_args
         self.color = color
         self.ir_path = Path(self.opt.train_ir_path)
         self.vis_path = Path(self.opt.train_vis_path)
@@ -43,6 +44,8 @@ class TrainData(torch.utils.data.Dataset):
         vis_path = self.vis_list[index]
 
         assert ir_path.name == vis_path.name, f"Mismatch ir:{ir_path.name} vis:{vis_path.name}."
+
+        file_name = self.return_name(ir_path)
 
         ir = cv2.imread(str(ir_path), cv2.IMREAD_GRAYSCALE)
         ir = np.array(ir, dtype='float32') / 255.0
@@ -77,7 +80,7 @@ class TrainData(torch.utils.data.Dataset):
         self.input_ir = ir.clone()
         self.input_vis = vis.clone()
 
-        return self.input_ir, self.input_vis
+        return self.input_ir, self.input_vis, file_name
 
     def __len__(self):
         assert len(self.ir_list) == len(self.vis_list)
@@ -93,6 +96,11 @@ class TrainData(torch.utils.data.Dataset):
 
         return train_ir_img, train_vis_img
 
+    @staticmethod
+    def return_name(path):
+        file_name = str(path).split('.', 1)[0].rsplit("/", 1)[1]
+        return file_name
+
 
 class TestData(torch.utils.data.Dataset):
     """
@@ -101,7 +109,7 @@ class TestData(torch.utils.data.Dataset):
 
     def __init__(self, color=True):
         super(TestData, self).__init__()
-        self.opt = args
+        self.opt = train_args
         self.color = color
         self.ir_path = Path(self.opt.train_ir_path)
         self.vis_path = Path(self.opt.train_vis_path)
@@ -168,7 +176,7 @@ class TestData(torch.utils.data.Dataset):
 
     @ staticmethod
     def return_name(path):
-        file_name = path.split('.', 1)[0].rsplit("/", 1)[1]
+        file_name = str(path).split('.', 1)[0].rsplit("/", 1)[1]
         return file_name
 
 
