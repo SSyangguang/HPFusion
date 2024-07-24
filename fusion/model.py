@@ -56,6 +56,7 @@ class LlavaFusion(nn.Module):
     def forward(self, ir, vis, name):
         fusion = self.fusion_model(ir, vis)
 
+        # 在推理时注释
         ir_llava = torch.cat((ir, ir, ir), 1)
         vis_llava = torch.cat((vis, vis, vis), 1)
         fusion_llava = (fusion - fusion.min()) / (fusion.max() - fusion.min())
@@ -67,6 +68,7 @@ class LlavaFusion(nn.Module):
 
         irtext_fusimg, vistext_fusimg = 0, 0
         fustext_visimg, fustext_irimg = 0, 0
+        irtext_irimg, vistext_visimg, fustext_fusimg =0, 0, 0
         for i in range(len(self.prompt_list)):
             qs = list(self.prompt_list.values())[i]
             # read pre-generated description text of ir and vis images.
@@ -79,6 +81,8 @@ class LlavaFusion(nn.Module):
             text_vis = clip.tokenize(vis_captions).to(device)
             text_fusion = clip.tokenize(fusion_captions).to(device)
 
+            '''
+            # 以batch为基础计算L1 loss
             # similarity between ir text and fusion image
             logits_per_image, logits_per_text = CLIP(fusion_CLIP, text_ir)
             irtext_fusimg_each = logits_per_image.softmax(dim=-1)
@@ -98,11 +102,33 @@ class LlavaFusion(nn.Module):
             logits_per_image, logits_per_text = CLIP(vis_CLIP, text_fusion)
             fustext_visimg_each = logits_per_image.softmax(dim=-1)
             fustext_visimg = fustext_visimg + fustext_visimg_each
+            '''
 
+            # similarity between ir text and ir image
+            logits_per_image, logits_per_text = CLIP(ir_CLIP, text_ir)
+            irtext_irimg_each = logits_per_image.softmax(dim=-1)
+            irtext_irimg = irtext_irimg + irtext_irimg_each
+
+            # similarity between vis text and vis image
+            logits_per_image, logits_per_text = CLIP(vis_CLIP, text_vis)
+            vistext_visimg_each = logits_per_image.softmax(dim=-1)
+            vistext_visimg = vistext_visimg + vistext_visimg_each
+
+            # similarity between fusion text and fusion image
+            logits_per_image, logits_per_text = CLIP(fusion_CLIP, text_fusion)
+            fusiontext_fusionimg_each = logits_per_image.softmax(dim=-1)
+            fustext_fusimg = fustext_fusimg + fusiontext_fusionimg_each
+
+        '''
+        # 以batch为基础计算L1 loss
         irtext_fusimg = irtext_fusimg / len(self.prompt_list)
         vistext_fusimg = vistext_fusimg / len(self.prompt_list)
         fustext_irimg = fustext_irimg / len(self.prompt_list)
         fustext_visimg = fustext_visimg / len(self.prompt_list)
+        '''
+        irtext_irimg = irtext_irimg / len(self.prompt_list)
+        vistext_visimg = vistext_visimg / len(self.prompt_list)
+        fustext_fusimg = fustext_fusimg / len(self.prompt_list)
 
         # read pre-generated description text of ir and vis images.
         # ir_captions = self.read_batch_text(name, tag='ir', text_num=1)
@@ -151,8 +177,11 @@ class LlavaFusion(nn.Module):
         fustext_visimg = logits_per_image.softmax(dim=-1)
         '''
 
-        probs = {'irtext_fusimg': irtext_fusimg, 'vistext_fusimg': vistext_fusimg,
-                 'fustext_irimg': fustext_irimg, 'fustext_visimg': fustext_visimg}
+        # probs = {'irtext_fusimg': irtext_fusimg, 'vistext_fusimg': vistext_fusimg,
+        #          'fustext_irimg': fustext_irimg, 'fustext_visimg': fustext_visimg}
+        probs = {'irtext_irimg': irtext_irimg, 'vistext_visimg': vistext_visimg,
+                 'fustext_fusimg': fustext_fusimg}
+        probs = 0
 
         return fusion, probs
 

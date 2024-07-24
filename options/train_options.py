@@ -12,7 +12,7 @@ parser.add_argument('--llava_device', type=str, default='cuda:1', help='gpu id f
 parser.add_argument('--devices', type=str, default='cuda:0', help='gpu id for fusion')
 # parser.add_argument('--devices', type=str, default=[0, 1, 3, 5], nargs='+', help='gpu id for fusion')
 parser.add_argument('--local_rank', type=int, default=-1, help='gpu id for ddp')
-parser.add_argument('--train_ddp', type=bool, default=False)
+parser.add_argument('--train_ddp', type=bool, default=True)
 
 # Data Acquisition
 parser.add_argument('--train_ir_path', type=str, default='/u2/yg/data/M3FD/M3FD_Detection/ir',
@@ -47,7 +47,7 @@ parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by 
 
 # loss function
 parser.add_argument('--loss_mse', type=float, default=0.2, help='weights for the mse in the loss function')
-parser.add_argument('--loss_clip', type=float, default=0.5, help='weights for the clip in the loss function')
+parser.add_argument('--loss_clip', type=float, default=0.2, help='weights for the clip in the loss function')
 
 
 args = parser.parse_args(args=[])

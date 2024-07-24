@@ -68,7 +68,8 @@ class Test(object):
         if self.color:
             for batch, (ir, vis, vis_cb, vis_cr, name) in enumerate(tqdm_loader):
                 # forward
-                ir, vis = ir.cuda(), vis.cuda()
+                # ir, vis = ir.cuda(), vis.cuda()
+                ir, vis = ir.to(self.device), vis.to(self.device)
                 print(f'{name[0]}.png')
 
                 fusion, probs = self.fusion_model(ir, vis, name)

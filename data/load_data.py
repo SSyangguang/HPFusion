@@ -109,10 +109,10 @@ class TestData(torch.utils.data.Dataset):
 
     def __init__(self, color=True):
         super(TestData, self).__init__()
-        self.opt = train_args
+        self.opt = test_args
         self.color = color
-        self.ir_path = Path(self.opt.train_ir_path)
-        self.vis_path = Path(self.opt.train_vis_path)
+        self.ir_path = Path(self.opt.test_ir_path)
+        self.vis_path = Path(self.opt.test_vis_path)
         # gain infrared and visible images list
         self.ir_list = [x for x in sorted(self.ir_path.glob('*')) if x.suffix in IMG_EXTENSIONS]
         self.vis_list = [x for x in sorted(self.vis_path.glob('*')) if x.suffix in IMG_EXTENSIONS]

@@ -43,7 +43,7 @@ class Train(object):
         self.model_pth = os.path.join(self.model_save, 'fusion_model.pth')
 
         self.train_set = TrainData(self.opt)
-        self.train_loader = DataLoader(self.train_set, batch_size=self.opt.batch_size)
+        self.train_loader = DataLoader(self.train_set, batch_size=self.opt.batch_size, shuffle=True)
 
         # load fusion model
         self.fusion_model = LlavaFusion().to(self.device)
@@ -219,7 +219,7 @@ class TrainDDP(object):
         # 初始化分布式进程组。
         # 使用NCCL作为通信后端，这是NVIDIA GPUs优化的通信库，适用于高性能GPU之间的通信。
         # rank是当前进程在进程组中的编号，world_size是总进程数（GPU数量），即进程组的大小。
-        dist.init_process_group("nccl", rank=rank, world_size=world_size, init_method='env://')
+        dist.init_process_group("nccl", rank=1, world_size=world_size, init_method='env://')
         # 为每个进程设置GPU
         torch.cuda.set_device(rank)
 
