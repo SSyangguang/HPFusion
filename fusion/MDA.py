@@ -143,6 +143,104 @@ class SpatialAtt(nn.Module):
         return [up_x, up_y]
 
 
+class CrossAttention(nn.Module):
+    def __init__(self, embed_dim, num_heads):
+        super(CrossAttention, self).__init__()
+        self.multihead_attn = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads)
+
+    def forward(self, query, key, value):
+        query = query.transpose(0, 1)
+        key = key.transpose(0, 1)
+        value = value.transpose(0, 1)
+
+        attn_output, _ = self.multihead_attn(query, key, value)
+        attn_output = attn_output.transpose(0, 1)
+
+        return attn_output
+
+
+class Img2Text(nn.Module):
+    def __init__(self, in_channel, mid_channel, hidden_dim):
+        super(Img2Text, self).__init__()
+        self.conv = nn.Conv2d(in_channels=in_channel, out_channels=mid_channel, kernel_size=1)
+        self.hidden_dim = hidden_dim
+        # self.h = h
+        # self.w = w
+
+    def forward(self, x):
+        x = self.conv(x)
+        # x = F.interpolate(x, [self.h, self.w], mode='nearest')
+        x = x.contiguous().view(x.size(0), x.size().numel() // x.size(0) // self.hidden_dim, self.hidden_dim)
+        return x
+
+
+class CrossBlock(nn.Module):
+    def __init__(self, input_dim=256, image2text_dim=32, hidden_dim=256):
+        super(CrossBlock, self).__init__()
+        self.image2text_dim = image2text_dim
+        self.convA_1 = nn.Sequential(
+            nn.Conv2d(input_dim*2, args.feature_num, 1),
+            nn.PReLU()
+        )
+        self.convA_2 = nn.Sequential(
+            nn.Conv2d(image2text_dim, args.feature_num, 1),
+            nn.PReLU()
+        )
+        self.convB_1 = nn.Sequential(
+            nn.Conv2d(input_dim*2, args.feature_num, 1),
+            nn.PReLU()
+        )
+        self.convB_2 = nn.Sequential(
+            nn.Conv2d(image2text_dim, args.feature_num, 1),
+            nn.PReLU()
+        )
+        self.cross_attentionA1 = CrossAttention(embed_dim=hidden_dim, num_heads=8)
+        self.cross_attentionA2 = CrossAttention(embed_dim=hidden_dim, num_heads=8)
+        self.imagef2textfA1 = Img2Text(input_dim, image2text_dim, hidden_dim)
+        self.imagef2textfB1 = Img2Text(input_dim, image2text_dim, hidden_dim)
+        self.image2text_dim = image2text_dim
+
+    def forward(self, imageA, imageB, text):
+        b, c, H, W = imageA.shape
+
+        imageAtotext = self.imagef2textfA1(imageA)
+        imageBtotext = self.imagef2textfB1(imageB)
+
+        ca_A = self.cross_attentionA1(text, imageAtotext, imageAtotext)
+        imageA_sideout = imageA
+        ca_A = torch.nn.functional.adaptive_avg_pool1d(ca_A.permute(0, 2, 1), 1).permute(0, 2, 1)
+        ca_A = F.normalize(ca_A, p=1, dim=2)
+
+        ca_A = (imageAtotext * ca_A).view(imageA.shape[0], self.image2text_dim, H, W)
+        imageA_sideout = F.interpolate(imageA_sideout, [H, W], mode='nearest')
+        ca_A = F.interpolate(ca_A, [H, W], mode='nearest')
+        ca_A = self.convA_1(torch.cat(
+                (F.interpolate(imageA, [H, W], mode='nearest'), self.convA_2(ca_A) + imageA_sideout), 1))
+
+        ca_B = self.cross_attentionA2(text, imageBtotext, imageBtotext)
+        imageB_sideout = imageB
+        ca_B = torch.nn.functional.adaptive_avg_pool1d(ca_B.permute(0, 2, 1), 1).permute(0, 2, 1)
+        ca_B = F.normalize(ca_B, p=1, dim=2)
+
+        ca_B = (imageBtotext * ca_B).view(imageA.shape[0], self.image2text_dim, H, W)
+        imageB_sideout = F.interpolate(imageB_sideout, [H, W], mode='nearest')
+        ca_B = F.interpolate(ca_B, [H, W], mode='nearest')
+        ca_B = self.convB_1(torch.cat(
+                (F.interpolate(imageB, [H, W], mode='nearest'), self.convB_2(ca_B) + imageB_sideout), 1))
+
+        return ca_A, ca_B
+
+
+class TextPreprocess(nn.Module):
+    def __init__(self, in_channel, out_channel):
+        super(TextPreprocess, self).__init__()
+        self.conv = nn.Conv1d(in_channel, out_channel, 1, 1, 0)
+
+    def forward(self, x):
+        x = self.conv(x.permute(0, 2, 1))
+        return x.permute(0, 2, 1)
+
+
 class FusionBlock(nn.Module):
     def __init__(self, upscale):
         super(FusionBlock, self).__init__()
@@ -170,6 +268,83 @@ class FusionBlock(nn.Module):
         fusion_y = y * self.channel_map(x, y)[1] * self.spatial_map(x, y)[1]
         fusion = fusion_x + fusion_y
         return fusion
+
+
+class MDAText(nn.Module):
+    def __init__(self, in_channel=1, out_channel=1, kernel=(3, 3), padding=(1, 1), bias=True):
+        super(MDAText, self).__init__()
+        self.channel = args.feature_num
+        self.input = nn.Conv2d(in_channel, self.channel, kernel_size=kernel, stride=(1, 1), padding=padding, bias=bias)
+        self.downsample_1x = ResDown(down_stride=(1, 1))
+        self.downsample_2x = ResDown(down_stride=(2, 2))
+        self.downsample_4x = nn.Sequential(ResDown(down_stride=(2, 2)), ResDown(down_stride=(2, 2)))
+
+        self.upsample_2x = ResUp(up_stride=(2, 2), out_channel=16)
+        self.upsample_4x = nn.Sequential(ResUp(up_stride=(2, 2),  out_channel=self.channel), ResUp(up_stride=(2, 2), out_channel=8))
+
+        self.fusion_1x = FusionBlock(upscale=1)
+        self.fusion_2x = FusionBlock(upscale=2)
+
+        self.cross_att = CrossBlock(input_dim=self.channel)
+        # 由于使用了4个问题，所以这里的输入通道是4
+        self.q_fusion = nn.Conv1d(4, 1, 1, 1)
+        self.text_process = TextPreprocess(1024, out_channel=256)
+        self.text_fusion = nn.Conv1d(2, 1, 1, 1)
+
+        self.output = nn.Sequential(
+            nn.Conv2d(88, self.channel, kernel_size=kernel, stride=(1, 1), padding=padding, bias=bias),
+            nn.Conv2d(self.channel, out_channel, kernel_size=kernel, stride=(1, 1), padding=padding, bias=bias),
+            nn.Tanh()
+        )
+
+    def forward(self, ir, vis, text_ir, text_vis):
+        ir_input = self.input(ir)
+        vis_input = self.input(vis)
+
+        # 降低clip文本特征的维度
+        text_ir = self.q_fusion(text_ir)
+        text_vis = self.q_fusion(text_vis)
+
+        text_ir = self.text_process(text_ir)
+        text_vis = self.text_process(text_vis)
+        # 后面也可以试试直接相加
+        text = self.text_fusion(torch.concatenate((text_ir, text_vis), dim=1))
+
+        # cross attention
+        ir_cross, vis_cross = self.cross_att(ir_input, vis_input, text)
+        ir_cross, vis_cross = self.cross_att(ir_cross, vis_cross, text)
+
+        ir_1x = self.downsample_1x(ir_cross)
+        ir_2x = self.downsample_2x(ir_cross)
+        ir_4x = self.downsample_4x(ir_cross)
+        vis_1x = self.downsample_1x(vis_cross)
+        vis_2x = self.downsample_2x(vis_cross)
+        vis_4x = self.downsample_4x(vis_cross)
+
+        fusion_1x_1x = self.fusion_1x(ir_1x, vis_1x)
+        fusion_1x_2x = self.fusion_2x(ir_2x, vis_1x)
+        fusion_2x_2x = self.fusion_1x(ir_2x, vis_2x)
+        fusion_2x_4x = self.fusion_2x(ir_4x, vis_2x)
+        fusion_4x_4x = self.fusion_1x(ir_4x, vis_4x)
+
+        fusion_2x_2x = self.upsample_2x(fusion_2x_2x)
+        fusion_2x_4x = self.upsample_2x(fusion_2x_4x)
+        fusion_4x_4x = self.upsample_4x(fusion_4x_4x)
+
+        fusion = torch.cat([fusion_1x_1x, fusion_1x_2x, fusion_2x_2x, fusion_2x_4x, fusion_4x_4x], dim=1)
+        output = self.output(fusion)
+        output = output / 2 + 0.5
+
+        return output
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                m.weight.data.normal_(0.0, 0.02)
+                if m.bias is not None:
+                    m.bias.data.normal_(0.0, 0.02)
+            if isinstance(m, nn.ConvTranspose2d):
+                m.weight.data.normal_(0.0, 0.02)
 
 
 class MDA(nn.Module):

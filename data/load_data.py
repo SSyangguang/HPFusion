@@ -148,8 +148,10 @@ class TestData(torch.utils.data.Dataset):
         # Permute the images to tensor format
         ir = np.transpose(ir, (2, 0, 1))
         vis = np.transpose(vis, (2, 0, 1))
-        self.input_ir = ir.copy()
-        self.input_vis = vis.copy()
+        ir, vis = torch.Tensor(ir), torch.Tensor(vis)
+
+        self.input_ir = ir.clone()
+        self.input_vis = vis.clone()
 
         if self.color:
             # Return Cb and Cr channel

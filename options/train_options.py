@@ -6,13 +6,13 @@ parser = argparse.ArgumentParser(description='Fusion')
 parser.add_argument('--seed', type=int, default=1, help='random seed')
 
 # gpu device
-parser.add_argument('--gpu_num', type=int, default=5,  help='gpu number')
+parser.add_argument('--gpu_num', type=int, default=6,  help='gpu number')
 
-parser.add_argument('--llava_device', type=str, default='cuda:1', help='gpu id for llava')
-parser.add_argument('--devices', type=str, default='cuda:0', help='gpu id for fusion')
-# parser.add_argument('--devices', type=str, default=[0, 1, 3, 5], nargs='+', help='gpu id for fusion')
-parser.add_argument('--local_rank', type=int, default=-1, help='gpu id for ddp')
-parser.add_argument('--train_ddp', type=bool, default=True)
+parser.add_argument('--llava_device', type=str, default='cuda:2', help='gpu id for llava')
+parser.add_argument('--devices', type=str, default='cuda:1', help='gpu id for fusion')
+# parser.add_argument('--devices', type=str, default=[0, 1], nargs='+', help='gpu id for fusion')
+parser.add_argument('--local_rank', type=int, default=1, help='gpu id for ddp')
+parser.add_argument('--train_ddp', type=bool, default=False)
 
 # Data Acquisition
 parser.add_argument('--train_ir_path', type=str, default='/u2/yg/data/M3FD/M3FD_Detection/ir',
@@ -36,7 +36,7 @@ parser.add_argument('--batch_size', type=int, default=8, help='input batch size'
 parser.add_argument('--load_size', type=int, default=512, help='scale images to this size')
 parser.add_argument('--crop_size', type=int, default=128, help='crop images')
 parser.add_argument('--resize_size', type=int, default=320, help='crop images')
-parser.add_argument('--feature_num', type=int, default=32, help='number of features of MDA')
+parser.add_argument('--feature_num', type=int, default=24, help='number of features of MDA')
 
 # training parameters
 parser.add_argument('--epochs', type=int, default=20, help='number of epochs')

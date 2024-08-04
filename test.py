@@ -14,7 +14,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from data.load_data import TestData
-from fusion.model import LlavaFusion
+from fusion.model import LlavaFusion, TextFusion
 from options.test_options import args
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
@@ -41,7 +41,7 @@ class Test(object):
         self.color = self.opt.test_color
 
         # load fusion model
-        self.fusion_model = LlavaFusion().to(self.device)
+        self.fusion_model = TextFusion().to(self.device)
         self.state = torch.load(self.model_pth)
         self.fusion_model.load_state_dict(self.state['model'])
 
@@ -86,7 +86,7 @@ class Test(object):
         else:
             for batch, (ir, vis, name) in enumerate(tqdm_loader):
                 # forward
-                ir, vis = ir.cuda(), vis.cuda()
+                ir, vis = ir.to(self.device), vis.to(self.device)
 
                 fusion, probs = self.fusion_model(ir, vis)
                 fusion = fusion.cpu().detach().numpy()

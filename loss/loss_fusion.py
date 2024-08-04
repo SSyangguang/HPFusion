@@ -26,12 +26,12 @@ class FusionLoss(nn.Module):
         super(FusionLoss, self).__init__()
         self.opt = args
 
-        self.l1_loss = torch.nn.L1Loss().cuda()
-        self.mse_loss = nn.MSELoss(reduction='mean').cuda()
-        self.ssim_loss = SSIMLoss(window_size=11).cuda()
+        self.l1_loss = torch.nn.L1Loss().to(self.opt.devices)
+        self.mse_loss = nn.MSELoss(reduction='mean').to(self.opt.devices)
+        self.ssim_loss = SSIMLoss(window_size=11).to(self.opt.devices)
 
     def forward(self, image, probs):
-        diagonal_matrix = torch.eye(self.opt.batch_size).cuda()
+        diagonal_matrix = torch.eye(self.opt.batch_size).to(self.opt.devices)
 
         '''
         # 以batch为基础计算L1 loss
@@ -44,11 +44,14 @@ class FusionLoss(nn.Module):
         loss_clip = loss_clip_it_fimg + loss_clip_vt_fimg + loss_clip_ft_iimg + loss_clip_ft_vimg
         loss_clip = torch.mean(loss_clip)
         '''
+
+        # 以模态和自己的img text相似度为基础计算L1 loss
         # loss for clip similarity
         loss_clip_ir_fus = self.l1_loss(probs['irtext_irimg'], probs['fustext_fusimg'])
         loss_clip_vis_fus = self.l1_loss(probs['vistext_visimg'], probs['fustext_fusimg'])
         loss_clip = loss_clip_ir_fus + loss_clip_vis_fus
         loss_clip = torch.mean(loss_clip)
+
 
         # loss for MSE
         loss_mse_if = self.mse_loss(image['fusion'], image['ir'])

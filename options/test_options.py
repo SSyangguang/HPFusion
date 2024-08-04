@@ -9,7 +9,7 @@ parser.add_argument('--seed', type=int, default=1, help='random seed')
 parser.add_argument('--gpu_num', type=int, default=5,  help='gpu number')
 
 parser.add_argument('--llava_device', type=str, default='cuda:2', help='gpu id for llava')
-parser.add_argument('--devices', type=str, default='cuda:5', help='gpu id for fusion')
+parser.add_argument('--devices', type=str, default='cuda:1', help='gpu id for fusion')
 # parser.add_argument('--devices', type=str, default=[0, 1, 3, 5], nargs='+', help='gpu id for fusion')
 parser.add_argument('--local_rank', type=int, default=-1, help='gpu id for ddp')
 parser.add_argument('--train_ddp', type=bool, default=False)
