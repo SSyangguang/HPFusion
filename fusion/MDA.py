@@ -164,12 +164,9 @@ class Img2Text(nn.Module):
         super(Img2Text, self).__init__()
         self.conv = nn.Conv2d(in_channels=in_channel, out_channels=mid_channel, kernel_size=1)
         self.hidden_dim = hidden_dim
-        # self.h = h
-        # self.w = w
 
     def forward(self, x):
         x = self.conv(x)
-        # x = F.interpolate(x, [self.h, self.w], mode='nearest')
         x = x.contiguous().view(x.size(0), x.size().numel() // x.size(0) // self.hidden_dim, self.hidden_dim)
         return x
 
@@ -260,10 +257,6 @@ class FusionBlock(nn.Module):
         else:
             up_x = x
 
-        # fusion = torch.cat((up_x, y), dim=1)
-        # fusion = self.one(fusion)
-        # fusion = up_x + y
-
         fusion_x = up_x * self.channel_map(x, y)[0] * self.spatial_map(x, y)[0]
         fusion_y = y * self.channel_map(x, y)[1] * self.spatial_map(x, y)[1]
         fusion = fusion_x + fusion_y
@@ -286,7 +279,6 @@ class MDAText(nn.Module):
         self.fusion_2x = FusionBlock(upscale=2)
 
         self.cross_att = CrossBlock(input_dim=self.channel)
-        # 由于使用了4个问题，所以这里的输入通道是4
         self.q_fusion = nn.Conv1d(4, 1, 1, 1)
         self.text_process = TextPreprocess(1024, out_channel=256)
         self.text_fusion = nn.Conv1d(2, 1, 1, 1)
@@ -301,13 +293,11 @@ class MDAText(nn.Module):
         ir_input = self.input(ir)
         vis_input = self.input(vis)
 
-        # 降低clip文本特征的维度
         text_ir = self.q_fusion(text_ir)
         text_vis = self.q_fusion(text_vis)
 
         text_ir = self.text_process(text_ir)
         text_vis = self.text_process(text_vis)
-        # 后面也可以试试直接相加
         text = self.text_fusion(torch.concatenate((text_ir, text_vis), dim=1))
 
         # cross attention
