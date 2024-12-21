@@ -34,13 +34,11 @@ class LlavaDesGen(nn.Module):
                                       load_4bit=False)
 
         # load prompt for llava
-        # self.prompt1 = 'briefly describe the images in a sentence.'
-        self.prompt = ['what targets are included in this image? answer in a sentence',
-                       'what targets are significant in this image? answer in a sentence',
-                       'what targets are salient in this image? answer in a sentence',
+        self.prompt = ['what targets are significant in this image? answer in a sentence',
                        'which regions should be noticed in this image? answer in a sentence',
                        'which regions have higher contrast in this image? answer in a sentence',
-                       'briefly describe the images in a sentence.']
+                       'briefly describe the images in a sentence.'
+                       ]
         self.qs_num = question_num
 
     def forward(self):
@@ -82,7 +80,7 @@ class LlavaDesGen(nn.Module):
 
 
 if __name__ == '__main__':
+    LlavaDesGen(1).forward()
     LlavaDesGen(2).forward()
     LlavaDesGen(3).forward()
     LlavaDesGen(4).forward()
-    LlavaDesGen(5).forward()

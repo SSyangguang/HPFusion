@@ -40,12 +40,11 @@ class TextFusion(nn.Module):
         self.fusion_clip_pool = ImagePool(self.opt.pool_size)
 
         # load prompt for llava
-        self.prompt = 'describe the image scene.'
         self.prompt_list = {
-            2: 'what targets are significant in this image? answer in a sentence',
-            4: 'which regions should be noticed in this image? answer in a sentence',
-            5: 'which regions have higher contrast in this image? answer in a sentence',
-            6: 'briefly describe the images in a sentence.'
+            1: 'what targets are significant in this image? answer in a sentence',
+            2: 'which regions should be noticed in this image? answer in a sentence',
+            3: 'which regions have higher contrast in this image? answer in a sentence',
+            4: 'briefly describe the images in a sentence.'
         }
 
     def forward(self, ir, vis, name):
